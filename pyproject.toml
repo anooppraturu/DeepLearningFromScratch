@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shasta"
+version = "0.1.0"
+description = "A small NumPy deep learning library from scratch"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

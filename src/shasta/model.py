@@ -1,6 +1,6 @@
 import numpy as np
-from layers import LinearLayer, DropoutLayer, ConvolutionalLayer, Flatten
-from activations import Tanh, ReLU
+from .layers import LinearLayer, DropoutLayer, ConvolutionalLayer, Flatten
+from .activations import Tanh, ReLU
 
 
 def constructor(layer_specs):
