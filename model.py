@@ -1,35 +1,27 @@
 import numpy as np
-from layers import LinearLayer
+from layers import LinearLayer, DropoutLayer
 from activations import Tanh, ReLU
 
 
 def constructor(layer_specs):
     layers = []
 
-    # read activation function
-    if layer_specs['activation'] == 'Tanh':
-        act = Tanh
-    elif layer_specs['activation'] == 'ReLU':
-        act = ReLU
-    else:
-        raise NotImplementedError
-    
-    # construct layers from layer_specs
-    nl = len(layer_specs['layers'])
-    for i, data in enumerate(layer_specs['layers']):
-        # Linear Layer
-        if data['type'] == 'linear':
-            specs=data['specs']
+    for dat in layer_specs:
+        kind = dat['type']
+        if kind == 'linear':
             layers.append(
                 LinearLayer(
-                    d_in = specs['d_in'],
-                    d_out = specs['d_out'],
-                    init_mode = specs.get('init_mode', 'Glorot')
+                    d_in = dat['d_in'],
+                    d_out = dat['d_out'],
+                    init_mode = dat.get('init_mode', 'Glorot')
                 )
             )
-            # add activation function if not final layer
-            if i < nl-1:
-                layers.append(act())
+        elif kind == 'tanh':
+            layers.append(Tanh())
+        elif kind == 'relu':
+            layers.append(ReLU())
+        elif kind == 'dropout':
+            layers.append(DropoutLayer(dat['p_drop']))
         else:
             raise NotImplementedError
         
@@ -38,7 +30,6 @@ def constructor(layer_specs):
 
 class Sequential:
     def __init__(self, layer_specs):
-        self.depth = len(layer_specs['layers'])
         self.layers = constructor(layer_specs)
 
     def forward(self, x):
@@ -56,3 +47,14 @@ class Sequential:
         for layer in self.layers:
             params.extend(layer.parameters())
         return params
+    
+    def train(self):
+        for layer in self.layers:
+            if hasattr(layer, 'training'):
+                layer.training = True
+
+    def eval(self):
+        for layer in self.layers:
+            if hasattr(layer, 'training'):
+                layer.training = False
+

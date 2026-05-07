@@ -58,3 +58,32 @@ class LinearLayer:
                 'weight_decay': False,
             }
         ]
+    
+
+class DropoutLayer:
+    def __init__(self, p_drop):
+        self.p = p_drop
+        self.mask = None
+        self.training = True
+
+    def forward(self, x):
+        """
+        x (B x D)
+        """
+        if not self.training:
+            return x
+        
+        self.mask = (np.random.rand(*x.shape) > (1 - self.p)) / (1 - self.p)
+        return self.mask * x
+    
+    def backward(self, delta):
+        """
+        delta (B x D)
+        """
+        if not self.training:
+            return delta
+            
+        return self.mask*delta
+    
+    def parameters(self):
+        return []
