@@ -1,5 +1,5 @@
 import numpy as np
-from layers import LinearLayer, DropoutLayer
+from layers import LinearLayer, DropoutLayer, ConvolutionalLayer, Flatten
 from activations import Tanh, ReLU
 
 
@@ -13,7 +13,7 @@ def constructor(layer_specs):
                 LinearLayer(
                     d_in = dat['d_in'],
                     d_out = dat['d_out'],
-                    init_mode = dat.get('init_mode', 'Glorot')
+                    init_mode = dat.get('init_mode', 'He')
                 )
             )
         elif kind == 'tanh':
@@ -22,6 +22,18 @@ def constructor(layer_specs):
             layers.append(ReLU())
         elif kind == 'dropout':
             layers.append(DropoutLayer(dat['p_drop']))
+        elif kind == 'convolutional':
+            layers.append(
+                ConvolutionalLayer(
+                    out_channels = dat['c_out'],
+                    in_channels = dat['c_in'],
+                    filter_size = dat['f_size'],
+                    stride = dat['stride'],
+                    init_mode = dat.get('init_mode', 'He')
+                )
+            )
+        elif kind == 'flatten':
+            layers.append(Flatten())
         else:
             raise NotImplementedError
         

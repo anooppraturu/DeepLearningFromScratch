@@ -29,7 +29,7 @@ class ReLU:
         """
         z (B, D) pre-activations
         """
-        self.a = np.heaviside(z, 0)*z
+        self.a = np.maximum(0, z)
         return self.a
     
     def backward(self, delta: np.ndarray) -> np.ndarray:
