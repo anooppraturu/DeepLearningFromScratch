@@ -1,8 +1,9 @@
 import numpy as np
 
-def train_model(model, optimizer, loss_fn, x, y, epochs, batch_size):
+def train_model(model, optimizer, loss_fn, x, y, epochs, batch_size, verbose=False):
     loss_history = []
     N = x.shape[0]
+    cadence = max(epochs // 10, 1)
 
     for epoch in range(epochs):
         shuffle_order = np.random.permutation(N)
@@ -17,9 +18,12 @@ def train_model(model, optimizer, loss_fn, x, y, epochs, batch_size):
 
             optimizer.step()
 
+            if verbose:
+                loss_history.append(loss)
+
         loss_history.append(loss)
         
-        if epoch % (epochs // 10) == 0:
+        if epoch % cadence == 0:
             print(f"epoch={epoch}, loss={loss_history[-1]}")
 
     return loss_history
