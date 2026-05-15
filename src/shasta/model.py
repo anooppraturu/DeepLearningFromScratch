@@ -48,15 +48,30 @@ def constructor(layer_specs):
 class Sequential:
     def __init__(self, layer_specs):
         self.layers = constructor(layer_specs)
+        self.logger = None
+
+    def set_logger(self, logger):
+        self.logger = logger
+
+    def clear_logger(self):
+        self.logger = None
 
     def forward(self, x):
-        for layer in self.layers:
+        for i, layer in enumerate(self.layers):
             x = layer.forward(x)
+
+            if self.logger is not None:
+                self.logger.log_forward(i, layer, x)
+
         return x
     
     def backward(self, grad):
-        for layer in reversed(self.layers):
+        for i, layer in reversed(list(enumerate(self.layers))):
             grad = layer.backward(grad)
+
+            if self.logger is not None:
+                self.logger.log_backward(i, layer, grad)
+                
         return grad
     
     def parameters(self):
