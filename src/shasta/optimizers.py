@@ -1,5 +1,5 @@
 import numpy as np
-from .model import Sequential
+from .models import Sequential
 
 class L2Regularizer:
     def __init__(self, lam):
