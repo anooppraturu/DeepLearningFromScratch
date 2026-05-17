@@ -58,9 +58,204 @@ class LinearLayer:
                 'weight_decay': False,
             }
         ]
-    
+
 
 class ConvolutionalLayer:
+    def __init__(self, out_channels, in_channels, filter_size, stride, init_mode: str = "He"):
+        self.C_in = in_channels
+        self.C_out = out_channels
+        self.F = filter_size
+        self.stride = stride
+
+        fan_in = self.F * self.F * self.C_in
+        fan_out = self.F * self.F * self.C_out
+
+        if init_mode == "Glorot":
+            init_size = np.sqrt(6.0 / (fan_in + fan_out))
+            self.W = np.random.uniform(
+                low=-init_size,
+                high=init_size,
+                size=(self.C_out, self.C_in, self.F, self.F),
+            )
+            self.b = np.zeros(self.C_out)
+
+        elif init_mode == "He":
+            self.W = np.random.randn(
+                self.C_out, self.C_in, self.F, self.F
+            ) * np.sqrt(2.0 / fan_in)
+            self.b = np.zeros(self.C_out)
+
+        else:
+            raise ValueError(f"Unknown init_mode: {init_mode}")
+
+        self.dW = np.zeros_like(self.W)
+        self.db = np.zeros_like(self.b)
+
+        # cache
+        self.x = None
+        self.X_col = None
+        self.x_shape = None
+        self.H_out = None
+        self.W_out = None
+
+    def _im2col(self, x):
+        """
+        x: (B, C_in, H, W)
+
+        Returns:
+            X_col: (B * H_out * W_out, C_in * F * F)
+        """
+        B, C, H, W = x.shape
+
+        assert C == self.C_in
+        assert H >= self.F
+        assert W >= self.F
+        assert (H - self.F) % self.stride == 0
+        assert (W - self.F) % self.stride == 0
+
+        H_out = (H - self.F) // self.stride + 1
+        W_out = (W - self.F) // self.stride + 1
+
+        # windows shape before striding:
+        # (B, C, H - F + 1, W - F + 1, F, F)
+        windows = np.lib.stride_tricks.sliding_window_view(
+            x,
+            window_shape=(self.F, self.F),
+            axis=(2, 3),
+        )
+
+        # Apply stride in spatial output dimensions
+        # shape: (B, C, H_out, W_out, F, F)
+        windows = windows[:, :, ::self.stride, ::self.stride, :, :]
+
+        # Move patch dimensions into rows:
+        # (B, H_out, W_out, C, F, F)
+        windows = windows.transpose(0, 2, 3, 1, 4, 5)
+
+        # Flatten:
+        # (B * H_out * W_out, C * F * F)
+        X_col = windows.reshape(B * H_out * W_out, C * self.F * self.F)
+
+        return X_col, H_out, W_out
+
+    def _col2im(self, dX_col):
+        """
+        dX_col: (B * H_out * W_out, C_in * F * F)
+
+        Returns:
+            dx: (B, C_in, H, W)
+        """
+        B, C, H, W = self.x_shape
+        H_out = self.H_out
+        W_out = self.W_out
+
+        # Undo flattening from im2col
+        # (B, H_out, W_out, C, F, F)
+        d_windows = dX_col.reshape(B, H_out, W_out, C, self.F, self.F)
+
+        dx = np.zeros((B, C, H, W), dtype=dX_col.dtype)
+
+        # Scatter-add each patch gradient back into dx.
+        # This loop is still needed because overlapping windows need accumulation.
+        for i in range(H_out):
+            h0 = i * self.stride
+            h1 = h0 + self.F
+
+            for j in range(W_out):
+                w0 = j * self.stride
+                w1 = w0 + self.F
+
+                # d_windows[:, i, j] has shape (B, C, F, F)
+                dx[:, :, h0:h1, w0:w1] += d_windows[:, i, j, :, :, :]
+
+        return dx
+
+    def forward(self, x):
+        """
+        x:   (B, C_in, H, W)
+        out: (B, C_out, H_out, W_out)
+        """
+        self.x = x
+        self.x_shape = x.shape
+
+        X_col, H_out, W_out = self._im2col(x)
+
+        self.X_col = X_col
+        self.H_out = H_out
+        self.W_out = W_out
+
+        # W_col: (C_out, C_in * F * F)
+        W_col = self.W.reshape(self.C_out, -1)
+
+        # out_col: (B * H_out * W_out, C_out)
+        out_col = X_col @ W_col.T + self.b[None, :]
+
+        B = x.shape[0]
+
+        # reshape back to image format
+        # (B, H_out, W_out, C_out) -> (B, C_out, H_out, W_out)
+        out = out_col.reshape(B, H_out, W_out, self.C_out)
+        out = out.transpose(0, 3, 1, 2)
+
+        return out
+
+    def backward(self, delta):
+        """
+        delta: (B, C_out, H_out, W_out)
+
+        Returns:
+            dx: (B, C_in, H, W)
+        """
+        B, C_out, H_out, W_out = delta.shape
+
+        assert C_out == self.C_out
+        assert H_out == self.H_out
+        assert W_out == self.W_out
+
+        # delta_col: (B * H_out * W_out, C_out)
+        delta_col = delta.transpose(0, 2, 3, 1).reshape(
+            B * H_out * W_out,
+            self.C_out,
+        )
+
+        W_col = self.W.reshape(self.C_out, -1)
+
+        # Bias gradient
+        self.db[...] = np.sum(delta_col, axis=0)
+
+        # Weight gradient
+        # delta_col.T: (C_out, B * H_out * W_out)
+        # X_col:       (B * H_out * W_out, C_in * F * F)
+        dW_col = delta_col.T @ self.X_col
+        self.dW[...] = dW_col.reshape(self.W.shape)
+
+        # Input gradient in column form
+        # dX_col: (B * H_out * W_out, C_in * F * F)
+        dX_col = delta_col @ W_col
+
+        # Scatter column gradients back into image layout
+        dx = self._col2im(dX_col)
+
+        return dx
+
+    def parameters(self):
+        return [
+            {
+                "name": "W",
+                "value": self.W,
+                "grad": self.dW,
+                "weight_decay": True,
+            },
+            {
+                "name": "b",
+                "value": self.b,
+                "grad": self.db,
+                "weight_decay": False,
+            },
+        ]
+
+
+class ConvolutionalLayerSlow:
     def __init__(self, out_channels, in_channels, filter_size, stride, init_mode: str = "He"):
         self.C_in = in_channels
         self.C_out = out_channels
