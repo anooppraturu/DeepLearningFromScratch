@@ -29,7 +29,7 @@ class XEntLoss:
         """
         z (B x D)
         """
-        max_z = np.max(z)
+        max_z = np.max(z, axis=1, keepdims=True)
         exp_z = np.exp(z - max_z)
         return exp_z / np.sum(exp_z, axis=1, keepdims=True)
 
