@@ -1,7 +1,7 @@
 import numpy as np
 from .layers import LinearLayer, DropoutLayer, ConvolutionalLayer, Flatten
 from .activations import Tanh, ReLU
-from .norms import BatchNorm
+from .norms import BatchNorm, BatchNorm2D
 
 
 def constructor(layer_specs):
@@ -38,6 +38,10 @@ def constructor(layer_specs):
         elif kind == 'batchnorm':
             layers.append(
                 BatchNorm(dat['d'])
+            )
+        elif kind == 'batchnorm2d':
+            layers.append(
+                BatchNorm2D(dat['c'])
             )
         else:
             raise NotImplementedError
