@@ -1,13 +1,11 @@
 import numpy as  np
 
-def batch_total_accuracy(model, x, labels, batch_size=8):
-    predictions = []
-    N = x.shape[0]
+def compute_total_accuracy(model, dataloader):
+    correct = []
 
-    for i in range(0, N, batch_size):
-        batch = x[i: i+batch_size]
-        out = model.forward(batch)
-        predictions.append(np.argmax(out, axis=1))
+    for xb, yb in dataloader:
+        out = model.forward(xb)
+        correct.append(np.argmax(out, axis=1) == np.argmax(yb, axis=1))
 
-    predictions = np.concatenate(predictions)
-    return np.mean(predictions == labels)
+    correct = np.concatenate(correct)
+    return np.mean(correct)
