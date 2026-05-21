@@ -23,6 +23,7 @@ def train_model(model, optimizer, loss_fn, TrainLoader, ValidationLoader=None, e
         mean_train_loss.append(np.mean(epoch_losses))
 
         if ValidationLoader is not None:
+            model.eval()
             val_losses = []
             for xvb, yvb in ValidationLoader:
                 preds = model.forward(xvb)
