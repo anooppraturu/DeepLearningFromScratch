@@ -395,3 +395,17 @@ class DropoutLayer:
     
     def parameters(self):
         return []
+    
+
+class ResidualLayer:
+    def __init__(self, subnetwork):
+        self.net = subnetwork
+
+    def forward(self, x):
+        return x + self.net.forward(x)
+    
+    def backward(self, delta):
+        return delta + self.net.backward(delta)
+    
+    def parameters(self):
+        return self.net.parameters()

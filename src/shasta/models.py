@@ -1,5 +1,5 @@
 import numpy as np
-from .layers import LinearLayer, DropoutLayer, ConvolutionalLayer, Flatten
+from .layers import LinearLayer, DropoutLayer, ConvolutionalLayer, Flatten, ResidualLayer
 from .activations import Tanh, ReLU
 from .norms import BatchNorm, BatchNorm2D, LayerNorm
 
@@ -46,6 +46,10 @@ def constructor(layer_specs):
         elif kind == 'layernorm':
             layers.append(
                 LayerNorm(dat['d'])
+            )
+        elif kind == 'residual':
+            layers.append(
+                ResidualLayer(Sequential(dat['specs']))
             )
         else:
             raise NotImplementedError
