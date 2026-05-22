@@ -21,12 +21,14 @@ class LinearLayer:
         self.db = np.zeros_like(self.b)
 
         self.x = None
+        self.training = True
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """
         x (B, d_in) input
         """
-        self.x = x
+        if self.training:
+            self.x = x
         return x@self.W + self.b
     
     def backward(self, delta: np.ndarray) -> np.ndarray:
@@ -97,6 +99,7 @@ class ConvolutionalLayer:
         self.x_shape = None
         self.H_out = None
         self.W_out = None
+        self.training = True
 
     def _im2col(self, x):
         """
@@ -175,14 +178,16 @@ class ConvolutionalLayer:
         x:   (B, C_in, H, W)
         out: (B, C_out, H_out, W_out)
         """
-        self.x = x
-        self.x_shape = x.shape
+        if self.training:
+            self.x = x
+            self.x_shape = x.shape
 
         X_col, H_out, W_out = self._im2col(x)
 
-        self.X_col = X_col
-        self.H_out = H_out
-        self.W_out = W_out
+        if self.training:
+            self.X_col = X_col
+            self.H_out = H_out
+            self.W_out = W_out
 
         # W_col: (C_out, C_in * F * F)
         W_col = self.W.reshape(self.C_out, -1)
